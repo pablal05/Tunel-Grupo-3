@@ -4,7 +4,6 @@ Solution to the one-way tunnel
 import time
 import random
 from multiprocessing import Lock, Condition, Process, Manager
-from multiprocessing import Value
 
 SOUTH = 0
 NORTH = 1
@@ -16,7 +15,6 @@ class Monitor():
         self.manager = Manager()
         self.mutex = Lock()
         self.inTunnel =  self.manager.list([0,0])
-        self.direction = Value('i',0)
         self.semaphore= Condition(self.mutex)
         self.carDir= None 
         
@@ -24,13 +22,12 @@ class Monitor():
         self.carDir = car_direction
 
     def validTunnel(self):
-        return (self.carDir == self.direction.value) or (self.inTunnel[(self.carDir +1)%2] == 0)
+        return  (self.inTunnel[(self.carDir +1)%2] == 0)
     
     def wants_enter(self, car_direction):
         self.mutex.acquire()
         self.car_dir(car_direction)
         self.semaphore.wait_for(self.validTunnel)
-        self.direction.value = car_direction
         self.inTunnel[car_direction] += 1
         self.mutex.release()
 
