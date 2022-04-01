@@ -24,7 +24,7 @@ from multiprocessing import Value
 SOUTH = 0
 NORTH = 1
 
-NCARS = 20
+NCARS = 10
 
 class Monitor():
     def __init__(self):
@@ -51,14 +51,14 @@ class Monitor():
     def wants_enter(self, car_direction):
         self.mutex.acquire()
         self.waiting[car_direction] += 1
-        print('aumenta el waiting' + str(self.waiting))
+        print('coches esperando' + str(self.waiting))
         
         self.car_dir(car_direction)
         if self.direction.value == -1:
             self.direction.value = car_direction 
         
-        if (self.waiting[(car_direction+1)%2]==0):
-            self.direction.value = car_direction 
+        #if (self.waiting[(car_direction+1)%2]==0) and self.inTunnel == 0:
+            #self.direction.value = car_direction 
         
         self.semaphore.wait_for(self.validTunnel)
         self.waiting[car_direction] -=1
@@ -71,24 +71,25 @@ class Monitor():
     def leaves_tunnel(self, car_direction):
         self.mutex.acquire()
         self.inTunnel.value -= 1
-        #self.waiting[car_direction] -=1
-            #self.empty.notify()
         if self.permission.value == 0:
-            print('el permiso deberia ser 0 :' + str(self.permission.value))
+            print('self.permission.value = ' + str(self.permission.value))
             #self.empty.wait_for(self.emptyTunnel)
             if self.waiting[(car_direction+1)%2]!=0: #hay coches en el otro lado esperando 
-                print('habia coches esperando en el otro lado') 
+                print('habia coches esperando en el otro lado, cambiamos direccíon') 
                 self.direction.value = (car_direction +1 )%2
                 print('cambio de dirección a: ' + str(self.direction.value)) 
                 self.permission.value = self.waiting[self.direction.value]
-                print('op1: el permiso ahora es:' + str(self.permission.value))
+                print('el permiso ahora es:' + str(self.permission.value))
             elif self.waiting[self.direction.value] == 0 and self.waiting[(self.direction.value+1)%2] == 0:
                 self.permission.value = 1
-                print('op2: el permiso ahora es:' + str(self.permission.value))
+                self.direction.value = -1
+                print('no queda ningún coche esperando')
+                print('el permiso ahora es:' + str(self.permission.value))
             else: 
                 self.permission.value = self.waiting[self.direction.value]
-                print('op3: el permiso ahora es:' + str(self.permission.value))
-        self.semaphore.notify()
+                print('no hay coches esperando en dirección contraria, no cambiamos dirección')
+                print('el permiso ahora es:' + str(self.permission.value))
+        self.semaphore.notify_all()
         self.mutex.release()
 
 def delay(n=3):
@@ -101,7 +102,7 @@ def car(cid, direction, monitor):
     monitor.wants_enter(direction)
     print(f"car {cid} heading {direction} enters the tunnel")
     delay(3)
-    print(f"car {cid} heading {direction} leaving the tunnel", flush=True)
+    print(f"car {cid} heading {direction} leaving the tunnel")
     monitor.leaves_tunnel(direction)
     #print(f"car {cid} heading {direction} out of the tunnel")
 
