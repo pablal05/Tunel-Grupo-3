@@ -30,12 +30,10 @@ class Monitor():
     def __init__(self):
         self.manager = Manager()
         self.mutex = Lock()
-        self.inTunnel = Value('i',0)
         self.direction = Value('i',-1)
         self.waiting = self.manager.list([0,0])
         self.permission = Value('i',1)
         self.semaphore= Condition(self.mutex)
-        #self.empty= Condition(self.mutex)
         self.carDir= None
                 
     def car_dir(self, car_direction):
@@ -44,9 +42,6 @@ class Monitor():
 
     def validTunnel(self):
         return (self.direction.value == self.carDir and self.permission.value > 0)
-    
-    def emptyTunnel(self):
-        return self.inTunnel == 0
     
     def wants_enter(self, car_direction):
         self.mutex.acquire()
@@ -63,14 +58,11 @@ class Monitor():
         self.semaphore.wait_for(self.validTunnel)
         self.waiting[car_direction] -=1
         print('ha entrado con este permiso: ' + str(self.permission.value))
-        self.permission.value -=1
-        self.inTunnel.value += 1
-    
+        self.permission.value -=1    
         self.mutex.release()
 
     def leaves_tunnel(self, car_direction):
         self.mutex.acquire()
-        self.inTunnel.value -= 1
         if self.permission.value == 0:
             print('self.permission.value = ' + str(self.permission.value))
             #self.empty.wait_for(self.emptyTunnel)
