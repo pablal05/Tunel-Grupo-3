@@ -3,7 +3,7 @@ Solution to the one-way tunnel
 """
 import time
 import random
-from multiprocessing import Lock, Condition, Process
+from multiprocessing import Lock, Condition, Process, Manager
 from multiprocessing import Value
 
 SOUTH = 0
@@ -13,29 +13,30 @@ NCARS = 5
 
 class Monitor():
     def __init__(self):
+        self.manager = Manager()
         self.mutex = Lock()
-        self.inTunnel = Value('i',0)
+        self.inTunnel =  self.manager.list([0,0])
         self.direction = Value('i',0)
         self.semaphore= Condition(self.mutex)
-        self.carDir= None
+        self.carDir= None 
         
     def car_dir(self, car_direction):
         self.carDir = car_direction
 
     def validTunnel(self):
-        return self.carDir == self.direction.value or self.inTunnel.value == 0
+        return (self.carDir == self.direction.value) or (self.inTunnel[(self.carDir +1)%2] == 0)
     
     def wants_enter(self, car_direction):
         self.mutex.acquire()
         self.car_dir(car_direction)
         self.semaphore.wait_for(self.validTunnel)
         self.direction.value = car_direction
-        self.inTunnel.value += 1
+        self.inTunnel[car_direction] += 1
         self.mutex.release()
 
-    def leaves_tunnel(self, direction):
+    def leaves_tunnel(self, car_direction):
         self.mutex.acquire()
-        self.inTunnel.value -= 1
+        self.inTunnel[car_direction] -= 1
         self.semaphore.notify()
         self.mutex.release()
 
@@ -58,13 +59,17 @@ def car(cid, direction, monitor):
 def main():
     monitor = Monitor()
     cid = 0
+    cars=[]
     for _ in range(NCARS):
         direction = NORTH if random.randint(0,1)==1  else SOUTH
         cid += 1
         p = Process(target=car, args=(cid, direction, monitor))
         p.start()
+        cars.append(p)
         time.sleep(random.expovariate(1/0.5)) # a new car enters each 0.5s
-
+        
+    for c in cars:
+        c.join()
 
 if __name__ == "__main__":
  main()
